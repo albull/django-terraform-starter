@@ -1,0 +1,75 @@
+name: Deploy to Dev (AWS ECR + ECS)
+
+# Builds the app image, pushes it to ECR, and forces a new ECS deployment so the
+# web + jobs services pick up the fresh image. Runtime secrets are NOT handled here:
+# they live in SSM Parameter Store, seeded by the terraform/ecs module.
+#
+# Prerequisites (one-time):
+#   - The terraform stack for this env is applied (ECR repo + ECS services exist).
+#   - An OIDC deploy role is configured; store its ARN in the AWS_DEPLOY_ROLE_ARN secret.
+#   - Set the env-specific names in the `env:` block below to match your workspace,
+#     e.g. WORKSPACE = "myapp-dev".
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  AWS_REGION: us-west-2
+  # These must match the terraform workspace name (see terraform/*/vars/<workspace>.tfvars).
+  WORKSPACE: myapp-dev
+  ECR_REPOSITORY: myapp-dev
+
+jobs:
+  build-and-deploy:
+    name: Build, push to ECR, deploy
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+    environment: dev
+    concurrency:
+      group: deploy-dev-${{ github.ref }}
+      cancel-in-progress: false
+    permissions:
+      id-token: write # for AWS OIDC
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build --platform linux/amd64 \
+            -t "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" \
+            -t "$ECR_REGISTRY/$ECR_REPOSITORY:latest" .
+          docker push "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+          docker push "$ECR_REGISTRY/$ECR_REPOSITORY:latest"
+
+      - name: Force new ECS deployment (web + jobs)
+        run: |
+          # web service runs migrations on startup (see entrypoint.sh); deploy it
+          # first so the schema is current before workers pick up the new image.
+          aws ecs update-service \
+            --cluster "${WORKSPACE}-web" \
+            --service "${WORKSPACE}-web" \
+            --force-new-deployment
+          aws ecs update-service \
+            --cluster "${WORKSPACE}-jobs" \
+            --service "${WORKSPACE}-jobs" \
+            --force-new-deployment

@@ -1,0 +1,27 @@
+.git
+.github
+.venv
+**/__pycache__
+**/*.pyc
+.ruff_cache
+.mypy_cache
+.pytest_cache
+**/.DS_Store
+
+# Terraform never belongs in the app image
+terraform/
+
+# Local env / secrets
+.env
+.env.*
+!.env.example
+/tmp
+
+# Docs & design notes — not needed in images
+*.md
+!README.md
+
+# Local Django artifacts
+staticfiles/
+media/
+db.sqlite3

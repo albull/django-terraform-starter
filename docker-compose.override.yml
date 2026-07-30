@@ -1,0 +1,20 @@
+# Local development port mappings (auto-loaded; merges with docker-compose.yml).
+#
+# Edit here to avoid clashing with other local stacks. This is the single source
+# of truth for host ports (the base compose file deliberately omits them).
+#
+#   web:   localhost:8000 -> container:8000
+#   db:    localhost:5432 -> container:5432
+#   redis: localhost:6379 -> container:6379
+services:
+  web:
+    ports:
+      - "8000:8000"
+
+  db:
+    ports:
+      - "5432:5432"
+
+  redis:
+    ports:
+      - "6379:6379"

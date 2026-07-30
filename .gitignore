@@ -1,0 +1,49 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.Python
+
+# uv / venv
+.venv/
+
+# Django
+*.log
+db.sqlite3
+/staticfiles/
+/media/
+local_settings.py
+
+# Env
+.env
+.env.*
+!.env.example
+
+# Tooling caches
+.ruff_cache/
+.mypy_cache/
+.pytest_cache/
+
+# Terraform
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+*.tfvars.dec
+errored.tfstate
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
+
+# Decrypted SOPS output must never be committed
+**/*secrets*.dec.json
+**/*secrets*.dec.yml
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/

@@ -1,0 +1,81 @@
+# Local development stack.
+#
+# Runs the Django web server (Daphne/runserver) + Celery + Postgres + Redis.
+# web and jobs share the same image and pick a mode via the entrypoint arg.
+#
+# Usage:
+#     docker compose up            # web + jobs + db + redis
+#     docker compose up -d
+#     docker compose logs -f web
+#
+# Host port mappings live in docker-compose.override.yml (auto-loaded), so you can
+# change them in one place without editing this file.
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: web
+    volumes:
+      # Live source for hot reload (no rebuild on edit).
+      - .:/app
+      - media_volume:/app/media
+      # Preserve the image-built venv (don't let the bind mount shadow it).
+      - /app/.venv
+    environment:
+      - DEBUG=1
+      - DJANGO_SECRET_KEY=dev-insecure-not-for-production
+      - DATABASE_URL=postgres://postgres:postgres@db:5432/app
+      - REDIS_URL=redis://redis:6379/0
+      - DJANGO_ALLOWED_HOSTS=*
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  jobs:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: jobs
+    volumes:
+      - .:/app
+      - media_volume:/app/media
+      - /app/.venv
+    environment:
+      - DEBUG=1
+      - DJANGO_SECRET_KEY=dev-insecure-not-for-production
+      - DATABASE_URL=postgres://postgres:postgres@db:5432/app
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  db:
+    image: postgres:16
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+    environment:
+      - POSTGRES_DB=app
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d app"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
+  media_volume:

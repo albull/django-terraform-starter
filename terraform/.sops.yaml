@@ -1,0 +1,16 @@
+# SOPS encryption rules for terraform secrets.
+#
+# Secrets live at <module>/vars/<workspace>-secrets.json (e.g. ecs/vars/myapp-dev-secrets.json)
+# and are committed ENCRYPTED. The KMS key is created by the terraform-backend module —
+# grab its ARN with `terraform output sops_kms_key_arn` in terraform-backend/.
+#
+# Create a secrets file (copy the .example, fill values, then encrypt):
+#   cp ecs/vars/myapp-dev-secrets.json.example ecs/vars/myapp-dev-secrets.json
+#   sops --encrypt --in-place ecs/vars/myapp-dev-secrets.json
+# Edit later:    sops ecs/vars/myapp-dev-secrets.json
+# Decrypt/view:  sops --decrypt ecs/vars/myapp-dev-secrets.json
+#
+# Replace the placeholder ARN below with your terraform-backend SOPS KMS key ARN.
+creation_rules:
+  - path_regex: .*/vars/.*-secrets\.json$
+    kms: "arn:aws:kms:us-west-2:<ACCOUNT_ID>:key/<SOPS_KMS_KEY_ID>"

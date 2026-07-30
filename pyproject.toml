@@ -1,0 +1,40 @@
+[project]
+name = "django-terraform-starter"
+version = "0.1.0"
+description = "Django (Daphne/ASGI) + Celery + Redis + Postgres starter, deployable to AWS ECS via the terraform/ modules."
+requires-python = ">=3.13"
+dependencies = [
+    "django>=4.2,<5.0",
+    "psycopg[binary]>=3.2",
+    "dj-database-url>=3.0",
+    "python-dotenv>=1.0",
+    "whitenoise>=6.11",
+    "daphne>=4.2",
+    "channels>=4.3",
+    "channels-redis>=4.2",
+    "celery>=5.6",
+    "django-celery-beat>=2.8",
+    "redis>=6.0",
+    "gunicorn>=23.0",
+]
+
+# No build-system: this is a Django project run via manage.py, not a built wheel.
+
+[dependency-groups]
+dev = [
+    "ruff>=0.9",
+    "pytest>=8",
+    "pytest-django>=4.9",
+]
+
+[tool.ruff]
+target-version = "py313"
+line-length = 100
+extend-exclude = ["**/migrations/**"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "config.settings"
+python_files = ["test_*.py", "*_test.py", "tests.py"]
