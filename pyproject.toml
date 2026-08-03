@@ -5,7 +5,7 @@ description = "Django (Daphne/ASGI) + Celery + Redis + Postgres starter, deploya
 requires-python = ">=3.13"
 dependencies = [
     "django>=4.2,<5.0",
-    "psycopg[binary]>=3.2",
+    "psycopg[binary]>=3.3.4",
     "dj-database-url>=3.0",
     "python-dotenv>=1.0",
     "whitenoise>=6.11",
