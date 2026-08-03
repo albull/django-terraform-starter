@@ -1,16 +1,26 @@
-# SOPS encryption rules for terraform secrets.
+# SOPS encryption rules — ONE creation rule per environment (per-env keying).
+#
+# THIS IS A PLACEHOLDER. Run ./setup-sops.sh to generate the real rules: it creates your
+# personal age key (if needed) plus a dedicated CI key per environment, writes their public
+# keys in below, and encrypts/re-wraps the secrets files to match.
+#
+# Secrets are encrypted with age rather than AWS KMS, so you can create and edit them
+# before any AWS account exists. The carlpett/sops Terraform provider decrypts them at
+# plan/apply time using SOPS_AGE_KEY_FILE.
 #
 # Secrets live at <module>/vars/<workspace>-secrets.json (e.g. ecs/vars/myapp-dev-secrets.json)
-# and are committed ENCRYPTED. The KMS key is created by the terraform-backend module —
-# grab its ARN with `terraform output sops_kms_key_arn` in terraform-backend/.
+# and are committed ENCRYPTED. Each is decryptable by the operator's personal key AND that
+# environment's dedicated CI key (whose PRIVATE half is the SOPS_AGE_KEY GitHub-environment
+# secret). A leaked dev CI key cannot decrypt prod.
 #
-# Create a secrets file (copy the .example, fill values, then encrypt):
-#   cp ecs/vars/myapp-dev-secrets.json.example ecs/vars/myapp-dev-secrets.json
-#   sops --encrypt --in-place ecs/vars/myapp-dev-secrets.json
 # Edit later:    sops ecs/vars/myapp-dev-secrets.json
 # Decrypt/view:  sops --decrypt ecs/vars/myapp-dev-secrets.json
 #
-# Replace the placeholder ARN below with your terraform-backend SOPS KMS key ARN.
+# age public keys are NOT secret — committing them is expected and safe.
 creation_rules:
-  - path_regex: .*/vars/.*-secrets\.json$
-    kms: "arn:aws:kms:us-west-2:<ACCOUNT_ID>:key/<SOPS_KMS_KEY_ID>"
+  - path_regex: vars/.*-dev-secrets\.json$
+    age: >-
+      <YOUR_PERSONAL_AGE_PUBLIC_KEY>,<DEV_CI_AGE_PUBLIC_KEY>
+  - path_regex: vars/.*-prod-secrets\.json$
+    age: >-
+      <YOUR_PERSONAL_AGE_PUBLIC_KEY>,<PROD_CI_AGE_PUBLIC_KEY>

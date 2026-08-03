@@ -10,10 +10,5 @@ output "state_bucket" {
   value = aws_s3_bucket.terraform.id
 }
 
-output "sops_kms_key_arn" {
-  value = aws_kms_key.sops.arn
-}
-
-output "sops_kms_key_id" {
-  value = aws_kms_key.sops.id
-}
+# Secrets are encrypted with age (see ../.sops.yaml and ../setup-sops.sh), not KMS,
+# so no SOPS key is provisioned here.

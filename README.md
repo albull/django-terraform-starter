@@ -44,7 +44,7 @@ to this when you're ready to touch AWS.
 
    | Placeholder | Where | What it is |
    |-------------|-------|------------|
-   | `<ACCOUNT_ID>` | `terraform/ecs/vars/*.tfvars`, `terraform/.sops.yaml` | AWS account ID per environment (and in the SOPS KMS key ARN) |
+   | `<ACCOUNT_ID>` | `terraform/ecs/vars/*.tfvars` | AWS account ID per environment |
    | `<GITHUB_ORG>/<GITHUB_REPO>` | `terraform/ecs/vars/*.tfvars`, `terraform/ecr/vars/*.tfvars` | Your repo, for the GitHub Actions OIDC trust policy |
    | `<YOUR_SSO_START_URL>` | `terraform/README.md` → your `~/.aws/config` | Your IAM Identity Center start URL |
    | `example.com` | `terraform/ecs/vars/*.tfvars`, `terraform/common/alarms.tf` | Your real domain, and the alarm notification email |
@@ -52,9 +52,11 @@ to this when you're ready to touch AWS.
    `grep -rn '<ACCOUNT_ID>\|GITHUB_ORG\|example\.com\|YOUR_SSO' terraform/` lists
    every remaining one.
 
-3. **Create the secrets files.** The SOPS-encrypted `vars/*-secrets.json` files are
-   not in the repo — you generate your own. See *Adding a new SOPS secret* in
-   [`terraform/README.md`](terraform/README.md).
+3. **Set up secret encryption.** Requires `brew install sops age`. From `terraform/`,
+   run `./setup-sops.sh yourproject` — it generates your age keys, writes `.sops.yaml`,
+   and creates encrypted `vars/*-secrets.json` files with random values. Needs no AWS
+   account, so you can do it now. See [Secrets](terraform/README.md#secrets-sops--age)
+   for what it does and how to onboard teammates.
 
 4. **Rename the repo and this README.** Replace this section with your own project
    notes once the setup is done — nobody cloning *your* repo needs these steps.
@@ -149,8 +151,9 @@ full setup. In short:
    `AWS_DEPLOY_ROLE_ARN` repo secret (the OIDC role created by the `ecs` module).
 
 Runtime secrets (`DJANGO_SECRET_KEY`, DB password) are seeded into SSM Parameter
-Store by Terraform from SOPS-encrypted `*-secrets.json` files — the deploy
-workflow does **not** handle secrets. See `terraform/.sops.yaml`.
+Store by Terraform from age-encrypted `*-secrets.json` files — the deploy
+workflow does **not** handle secrets. See
+[Secrets](terraform/README.md#secrets-sops--age).
 
 ## What's included
 

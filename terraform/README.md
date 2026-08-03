@@ -15,7 +15,10 @@ ElastiCache (Redis), ECR, ECS (Fargate) for the `web` + `jobs` services, and an 
 
 ## Development
 
-Requires `terraform` and Mozilla's SOPS for secret management. We use custom terraform scripts wrapping standard commands to set common variables including environment specific configuration. See `terraform-scripts` for details.
+Requires `terraform`, plus `sops` and `age` for secret management (`brew install sops age`).
+We use custom terraform scripts wrapping standard commands to set common variables including
+environment specific configuration. See `terraform-scripts` for details, and
+[Secrets](#secrets-sops--age) for the one-time key setup.
 
 ## One-Time Global Infrastructure Setup
 
@@ -88,7 +91,10 @@ terraform init \
 
 3. `cd` into each module directory and initialize your local state (pull from the remote in s3): `../terraform-scripts/terraform-init.sh`
 
-4. You're all set up! Check out the below Usage section to learn how we create and modify modules.
+4. Set up secret encryption: from `terraform/`, run `./setup-sops.sh yourproject` (see
+   [Secrets](#secrets-sops--age)). The `ecs` and `rds` modules will not plan without it.
+
+5. You're all set up! Check out the below Usage section to learn how we create and modify modules.
 
 ## Usage
 
@@ -107,20 +113,64 @@ Apply existing modules individually (execute inside the module's directory):
 
 See the ECR README for instructions.
 
-### Adding a new SOPS secret
+## Secrets (SOPS + age)
 
-1. Get the KMS secrets key ARN in `../terraform-backend/`: `terraform output sops_kms_key_arn`
-2. Initialize the module: `../terraform-scripts/terraform-init.sh`
-3. Create `vars/APPLICATION-ENV-NAME-secrets.json`: `sops -k KMS-KEY-HERE --aws-profile myapp-terraform vars/APPLICATION-ENV-NAME-secrets.json`
-4. Add the following variables:
+Requires `sops` and `age` — `brew install sops age`.
 
-```json
-{
-  "secret_name_here": "SECRET_HERE"
-}
+Secrets are encrypted with **age**, not AWS KMS, so you can create and edit them before
+any AWS account exists. Encrypted `vars/<workspace>-secrets.json` files **are** committed;
+the plaintext never is. The `carlpett/sops` Terraform provider decrypts them at plan/apply
+time (see the `data "sops_file"` blocks in `ecs/` and `rds/`).
+
+Keying is **per environment**: each file is decryptable by your personal age key *and* that
+environment's dedicated CI key. A leaked dev CI key cannot decrypt prod.
+
+### First-time setup
+
+From `terraform/`, run the generator once:
+
+```bash
+./setup-sops.sh yourproject     # defaults to `myapp`
 ```
 
-5. You can generate a new password with something like: `openssl rand -hex 32`.
+It is idempotent — safe to re-run. It will:
+
+1. Create your personal age key at `~/.config/sops/age/keys.txt` if you don't have one.
+2. Generate a per-environment CI key at `~/.config/sops/age/<project>-<env>.txt`.
+3. Rewrite `.sops.yaml` with one rule per environment, listing both public keys.
+4. Create any missing `<module>/vars/<workspace>-secrets.json` from the committed
+   `.example` templates, filling in strong random values, and encrypt them. Existing
+   files are re-wrapped with `sops updatekeys` — **contents are preserved**.
+5. Write the CI *private* keys to `ci-age-keys.OUTPUT.txt` (gitignored).
+
+Then paste each private key into the matching GitHub environment's `SOPS_AGE_KEY` secret
+(Settings → Environments → `<env>` → Environment secrets) and **delete that file**.
+
+### Day-to-day
+
+```bash
+sops ecs/vars/myapp-dev-secrets.json              # edit in place (re-encrypts on save)
+sops --decrypt ecs/vars/myapp-dev-secrets.json    # view plaintext
+openssl rand -hex 32                              # generate a new secret value
+```
+
+To add a **new secret key**, edit the file with `sops` and add the JSON key, then reference
+it in Terraform via `data.sops_file.secrets.data["your_key"]`. Add it to the corresponding
+`.example` file too (with a `replace-with-...` placeholder) so the next person knows it exists.
+
+### Onboarding a teammate
+
+Add their age **public** key to every rule's `age:` list in `.sops.yaml`, then re-wrap each
+file so it's encrypted for them as well:
+
+```bash
+sops updatekeys ecs/vars/myapp-dev-secrets.json   # repeat per module/env
+```
+
+### Rotating a compromised CI key
+
+Delete `~/.config/sops/age/<project>-<env>.txt`, re-run `./setup-sops.sh`, then update that
+GitHub environment's `SOPS_AGE_KEY` secret with the new private key.
 
 ## Connecting to an ECS container
 

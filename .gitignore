@@ -43,6 +43,13 @@ terraform.rc
 **/*secrets*.dec.json
 **/*secrets*.dec.yml
 
+# SOPS per-env setup: the CI private-key handoff file (delete after pasting into GitHub)
+terraform/ci-age-keys.OUTPUT.txt
+
+# age private keys, if anyone keeps one in-tree by mistake
+*.age
+age-key*.txt
+
 # OS / editor
 .DS_Store
 .idea/

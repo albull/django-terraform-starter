@@ -108,16 +108,6 @@ resource "aws_dynamodb_table" "terraform" {
   })
 }
 
-resource "aws_kms_key" "sops" {
-  description         = "Key for encrypting SOPS files"
-  enable_key_rotation = true
-
-  tags = merge(local.default_tags, {
-    Name = "terraform-sops"
-  })
-}
-
-resource "aws_kms_alias" "sops" {
-  name          = "alias/myapp-terraform-sops"
-  target_key_id = aws_kms_key.sops.key_id
-}
+# No SOPS KMS key: secrets are encrypted with age (../.sops.yaml, ../setup-sops.sh) so
+# they can be created and edited before any AWS account exists. The aws_kms_key.terraform
+# above is for state-at-rest encryption only.
