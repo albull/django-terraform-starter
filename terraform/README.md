@@ -3,12 +3,15 @@
 AWS infrastructure for the Django app in the repository root: VPC, RDS (Postgres),
 ElastiCache (Redis), ECR, ECS (Fargate) for the `web` + `jobs` services, and an ALB.
 
-> **Placeholders to replace before applying.** This starter uses `myapp` as the
-> project name throughout. Do a project-wide find/replace of `myapp` → your name,
-> then fill in the `<ACCOUNT_ID>`, `<GITHUB_ORG>/<GITHUB_REPO>`, `<YOUR_SSO_START_URL>`,
-> and `example.com` domain placeholders in `*/vars/*.tfvars` and the READMEs.
-> Workspaces are named `myapp-dev` / `myapp-prod`; the shared state profile is
-> `myapp-terraform`.
+> **If you just cloned this template, start here.** None of this is wired to a real
+> AWS account — the modules ship with `myapp` as the project name and `<...>`
+> placeholders for anything account-specific. Before you run a single `apply`, work
+> through **Making it yours** in the [root README](../README.md#making-it-yours):
+> find/replace `myapp` → your project name, then fill in `<ACCOUNT_ID>`,
+> `<GITHUB_ORG>/<GITHUB_REPO>`, `<YOUR_SSO_START_URL>`, and the `example.com` domain
+> in `*/vars/*.tfvars` and in the READMEs. Workspaces are named `myapp-dev` /
+> `myapp-prod`; the shared state profile is `myapp-terraform`. The setup steps below
+> assume you've done that pass and that `myapp` now reads as your own name.
 
 ## Development
 
@@ -123,7 +126,22 @@ See the ECR README for instructions.
 
 Requires `jq` and the [Session Manager Plugin for AWS CLI](https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-working-with-install-plugin.html).
 
-1. `aws ecs execute-command --region us-east-2 --profile APPLICATION-ENV-NAME --cluster APPLICATION-ENV-NAME-app --interactive --command "/bin/sh" --task $(aws ecs list-tasks --region us-east-2 --profile APPLICATION-ENV-NAME --cluster APPLICATION-ENV-NAME-app | jq -r ".taskArns | .[0]" | tail -c 33)`
+There are two clusters per environment — `APPLICATION-ENV-NAME-web` and
+`APPLICATION-ENV-NAME-jobs`. Substitute whichever you need for `CLUSTER` below
+(both services set `enable_execute_command = true`):
+
+```bash
+CLUSTER=APPLICATION-ENV-NAME-web
+PROFILE=APPLICATION-ENV-NAME
+
+aws ecs execute-command --region us-west-2 --profile "$PROFILE" \
+  --cluster "$CLUSTER" --interactive --command "/bin/sh" \
+  --task "$(aws ecs list-tasks --region us-west-2 --profile "$PROFILE" \
+    --cluster "$CLUSTER" | jq -r '.taskArns | .[0]')"
+```
+
+Django management commands inside the container need the `uv run` prefix, e.g.
+`uv run python manage.py shell`.
 
 ## Helpful Aliases
 

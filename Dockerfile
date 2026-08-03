@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 #
-# Application image (Django control plane + Celery worker share one image).
+# Application image (the Django web server and Celery worker share one image).
 # The runtime mode is selected by the entrypoint arg: `web` or `jobs`.
 #
 # Build from the repository root:

@@ -4,6 +4,12 @@ A batteries-included starter for a Django app that runs as an **ASGI (Daphne)**
 server with **Celery** workers, backed by **Postgres** and **Redis**, and deploys
 to **AWS ECS (Fargate)** via the Terraform modules in [`terraform/`](terraform/).
 
+> **This is a template, not a deployable app.** It is meant to be cloned (or used
+> via GitHub's *Use this template*) as the starting point for a new project. Nothing
+> here is wired to a real AWS account or domain — the repo ships with `myapp` and
+> `<...>` placeholders that **you**, the person cloning it, fill in for your own
+> project. Start with [Making it yours](#making-it-yours) below.
+
 ```
 .
 ├── config/            # Django project (settings, asgi, wsgi, celery, urls)
@@ -16,6 +22,42 @@ to **AWS ECS (Fargate)** via the Terraform modules in [`terraform/`](terraform/)
 ├── .github/workflows/ # CI (lint + test) and deploy (ECR build + ECS roll)
 └── terraform/         # VPC, RDS, ElastiCache, ECR, ECS, ALB, monitoring
 ```
+
+## Making it yours
+
+Do this once, right after cloning, before you try to deploy anything. Local
+development with `docker compose` works as-is, so you can skip ahead and come back
+to this when you're ready to touch AWS.
+
+1. **Pick your project name and find/replace `myapp`.** It appears in the Terraform
+   workspaces (`myapp-dev` / `myapp-prod`), the shared state profile
+   (`myapp-terraform`), resource names, and the ECR repository name:
+
+   ```bash
+   # from the repo root — review the hits first, then replace
+   grep -rl myapp . --exclude-dir=.git --exclude-dir=.venv
+   grep -rl myapp . --exclude-dir=.git --exclude-dir=.venv | xargs sed -i '' 's/myapp/yourname/g'
+   ```
+
+2. **Fill in the placeholders.** These are deliberately left blank because they're
+   specific to your AWS org and GitHub repo:
+
+   | Placeholder | Where | What it is |
+   |-------------|-------|------------|
+   | `<ACCOUNT_ID>` | `terraform/ecs/vars/*.tfvars`, `terraform/.sops.yaml` | AWS account ID per environment (and in the SOPS KMS key ARN) |
+   | `<GITHUB_ORG>/<GITHUB_REPO>` | `terraform/ecs/vars/*.tfvars`, `terraform/ecr/vars/*.tfvars` | Your repo, for the GitHub Actions OIDC trust policy |
+   | `<YOUR_SSO_START_URL>` | `terraform/README.md` → your `~/.aws/config` | Your IAM Identity Center start URL |
+   | `example.com` | `terraform/ecs/vars/*.tfvars`, `terraform/common/alarms.tf` | Your real domain, and the alarm notification email |
+
+   `grep -rn '<ACCOUNT_ID>\|GITHUB_ORG\|example\.com\|YOUR_SSO' terraform/` lists
+   every remaining one.
+
+3. **Create the secrets files.** The SOPS-encrypted `vars/*-secrets.json` files are
+   not in the repo — you generate your own. See *Adding a new SOPS secret* in
+   [`terraform/README.md`](terraform/README.md).
+
+4. **Rename the repo and this README.** Replace this section with your own project
+   notes once the setup is done — nobody cloning *your* repo needs these steps.
 
 ## Local development
 
@@ -96,9 +138,9 @@ ECS task definitions use.
 The infrastructure lives in [`terraform/`](terraform/) — read its README for the
 full setup. In short:
 
-1. **Rename the placeholders.** Project-wide find/replace `myapp` → your project
-   name, then fill the `<ACCOUNT_ID>`, `<GITHUB_ORG>/<GITHUB_REPO>`, SSO URL, and
-   `example.com` domain placeholders in `terraform/*/vars/*.tfvars`.
+1. **Do the [Making it yours](#making-it-yours) pass first.** Every module reads the
+   project name and account IDs you set there; applying with the placeholders in
+   place will fail (or create resources named `myapp`).
 2. **Stand up state + infra** (`terraform-backend` → `network` → `rds` → `cache`
    → `ecr` → `ecs` → `resource-groups`). See `terraform/README.md`.
 3. **Wire CI/CD.** `.github/workflows/deploy-dev.yml` builds the image, pushes to
@@ -110,10 +152,23 @@ Runtime secrets (`DJANGO_SECRET_KEY`, DB password) are seeded into SSM Parameter
 Store by Terraform from SOPS-encrypted `*-secrets.json` files — the deploy
 workflow does **not** handle secrets. See `terraform/.sops.yaml`.
 
-## What was stripped from the source infra
+## What's included
 
-The Terraform is derived from a production ECS repo, with app-specific pieces
-removed for a clean starter: the LiveKit recordings S3 bucket + IAM users, the
-dedicated `workflow-worker` cluster and its queue-depth autoscaling, and the
-`code-sandbox` ECR repo/sidecar. The generic web + jobs services, VPC, RDS,
-Redis, ALB, WAF, and CloudWatch alarms remain.
+The Terraform is extracted from a running production ECS deployment, with
+application-specific resources removed so what's left is generic:
+
+- **`network`** — VPC, public/private subnets across 2 AZs, NAT
+- **`rds`** — Postgres, with AWS Backup plans and an optional read replica
+- **`cache`** — ElastiCache Redis (Celery broker + Channels layer)
+- **`ecr`** — one image repository per application, shared across environments
+- **`ecs`** — Fargate `web` and `jobs` clusters, ALB, ACM cert, WAF, and the
+  GitHub Actions OIDC deploy role
+- **`common`** — SNS topic and CloudWatch alarms
+- **`resource-groups`** — console grouping for an environment's resources
+
+Sizing in the `*.tfvars` files starts small (`db.t4g.micro`, 256 CPU web tasks) and
+is meant to be raised for real workloads.
+
+## License
+
+MIT — see [LICENSE](LICENSE).
