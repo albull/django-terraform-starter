@@ -55,7 +55,7 @@ to this when you're ready to touch AWS.
 3. **Set up secret encryption.** Requires `brew install sops age`. From `terraform/`,
    run `./setup-sops.sh yourproject` — it generates your age keys, writes `.sops.yaml`,
    and creates encrypted `vars/*-secrets.json` files with random values. Needs no AWS
-   account, so you can do it now. See [Secrets](terraform/README.md#secrets-sops--age)
+   account, so you can do it now. See [terraform/SECRETS.md](terraform/SECRETS.md)
    for what it does and how to onboard teammates.
 
 4. **Rename the repo and this README.** Replace this section with your own project
@@ -153,7 +153,7 @@ full setup. In short:
 Runtime secrets (`DJANGO_SECRET_KEY`, DB password) are seeded into SSM Parameter
 Store by Terraform from age-encrypted `*-secrets.json` files — the deploy
 workflow does **not** handle secrets. See
-[Secrets](terraform/README.md#secrets-sops--age).
+[terraform/SECRETS.md](terraform/SECRETS.md).
 
 ## What's included
 

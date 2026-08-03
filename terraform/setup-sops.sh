@@ -15,8 +15,10 @@
 #      .example templates (generating strong random values), then encrypts each to its
 #      environment's rule. Existing files are re-wrapped (`sops updatekeys`) so they gain
 #      new recipients without changing their contents.
-#   4. Writes the CI PRIVATE keys to ci-age-keys.OUTPUT.txt (gitignored) — paste each into
-#      the matching GitHub environment's SOPS_AGE_KEY secret, then delete that file.
+#   4. Writes the CI PRIVATE keys to ci-age-keys.OUTPUT.txt (gitignored), then DELETE it.
+#      As shipped nothing in CI decrypts secrets (terraform does it locally, and the deploy
+#      workflow only builds + rolls the service) — these keys are for when you add a workflow
+#      that runs terraform itself. See SECRETS.md "Do you need the CI keys?".
 #
 # Your personal key stays a recipient on every file, so you can always `sops -d` locally.
 #
@@ -140,5 +142,11 @@ done
 chmod 600 "$OUT"
 
 echo
-echo "DONE. CI private keys written to: $OUT"
-echo "Paste each into its GitHub environment secret, then delete that file."
+echo "DONE."
+echo
+echo "Verify the per-env split before relying on it — the dev key must FAIL on prod:"
+echo "  SOPS_AGE_KEY_FILE=$(ci_key_file dev) sops -d ${MODULES[0]}/vars/$PROJECT-prod-secrets.json"
+echo
+echo "CI private keys: $OUT"
+echo "You likely do NOT need them yet (nothing in CI decrypts secrets as shipped) —"
+echo "see SECRETS.md. Either way, DELETE that file when you're done with it."
